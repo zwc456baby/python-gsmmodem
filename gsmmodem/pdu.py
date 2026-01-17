@@ -465,8 +465,11 @@ def _decodeUserData(byteIter, userDataLen, dataCoding, udhPresent):
             # Since we are using 7-bit data, "fill bits" may have been added to make the UDH end on a septet boundary
             shift = ((udhLen + 1) * 8) % 7 # "fill bits" needed to make the UDH end on a septet boundary
             # Simulate another "shift" in the unpackSeptets algorithm in order to ignore the fill bits
-            prevOctet = next(byteIter)
-            shift += 1
+            if shift:
+                prevOctet = next(byteIter)
+                shift += 1
+            else:
+                prevOctet = 0
 
     if dataCoding == 0x00: # GSM-7
         if udhPresent:
@@ -904,16 +907,14 @@ def unpackSeptets(septets, numberOfSeptets=None, prevOctet=None, shift=7):
 
 def decodeUcs2(byteIter, numBytes):
     """ Decodes UCS2-encoded text from the specified byte iterator, up to a maximum of numBytes """
-    userData = []
-    i = 0
+    userData = bytearray()
     try:
-        while i < numBytes:
-            userData.append(unichr((next(byteIter) << 8) | next(byteIter)))
-            i += 2
+        for i in range(numBytes):
+            userData.append(next(byteIter))
     except StopIteration:
         # Not enough bytes in iterator to reach numBytes; return what we have
         pass
-    return ''.join(userData)
+    return userData.decode('utf-16-be')
 
 def encodeUcs2(text):
     """ UCS2 text encoding algorithm
@@ -925,12 +926,7 @@ def encodeUcs2(text):
     :return: A bytearray containing the string encoded in UCS2 encoding
     :rtype: bytearray
     """
-    result = bytearray()
-
-    for b in map(ord, text):
-        result.append(b >> 8)
-        result.append(b & 0xFF)
-    return result
+    return text.encode('utf-16-be')
 
 def divideTextUcs2(plainText):
     """ UCS-2 message dividing algorithm
